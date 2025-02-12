@@ -1,4 +1,9 @@
+#include <intrinsics.h>
+#include <stdbool.h>
+
 #include <msp430g2553.h>
+
+#include "./State.h"
 
 /*
 Unused I/O pins should be configured as I/O function, output direction, and left
@@ -20,13 +25,33 @@ input.
 
 #define LOW_SPEED_LED BIT3
 #define MID_SPEED_LED BIT1
-#define FULL_SPEED_LED BIT5
+#define FULL_SPEED_LED BIT5 /* ACLK/ID_0/(TA0CCR0 + 1) = Period in Hz */
+
+volatile bool changeSpeedButtonPressed = false;
+volatile bool enableSpeedButtonPressed = false;
+
+volatile unsigned int currentState;
+
+volatile struct State appState;
+
+const struct State appStates[4] = {{NO_SPEED_VALUE, 0, false},
+                                   {LOW_SPEED_VALUE, LOW_SPEED_LED, true},
+                                   {MID_SPEED_VALUE, MID_SPEED_LED, true},
+                                   {FULL_SPEED_VALUE, FULL_SPEED_LED, true}};
 
 int main(void) {
   WDTCTL = WDTPW + WDTHOLD; // Stop watchdog timer
 
+  currentState = 0;
+  appState = appStates[currentState];
+
   BCSCTL3 |= LFXT1S_2; /* Mode 2 for LFXT1 : VLOCLK 12KHz*/
   BCSCTL1 |= DIVA_0;   /* ACLK Divider 0: /1 */
+
+  // P1.0 = ACLK
+  P1DIR |= BIT0;   // P1.0 configured as output
+  P1SEL |= BIT0;   // Primary peripheral module function for P1.0
+  P1SEL2 &= ~BIT0; // Primary peripheral module function for P1.0
 
   // P1.3 = Speed Push Button
   P1DIR &= ~SPEED_PUSH_BUTTON;  // P1.3 configured as input
@@ -59,47 +84,99 @@ int main(void) {
   P1SEL |= SPEED_OUTPUT;   // Primary peripheral module function for P1.6
   P1SEL2 &= ~SPEED_OUTPUT; // Primary peripheral module function for P1.6
 
-  TA0CTL &= ~MC_0;      /* Timer A mode control: 0 - Stop */
-  TA0CTL |= TASSEL_1;   /* Timer A clock source select: 1 - ACLK  */
-  TA0CTL |= ID_0;       /* Timer A input divider: 0 - /1 */
-  TA0CCTL1 |= OUTMOD_7; /* PWM output mode: 7 - PWM reset/set */
-  TA0CCR0 = FULL_SPEED_VALUE;
-  TA0CCR1 = NO_SPEED_VALUE;
-  TA0CTL |= MC_1; /* Timer A mode control: 1 - Up to CCR0 */
+  TA0CTL &= ~MC_0;            /* Timer A mode control: 0 - Stop */
+  TA0CTL |= TASSEL_1;         /* Timer A clock source select: 1 - ACLK  */
+  TA0CTL |= ID_0;             /* Timer A input divider: 0 - /1 */
+  TA0CCTL1 |= OUTMOD_7;       /* PWM output mode: 7 - PWM reset/set */
+  TA0CCR0 = FULL_SPEED_VALUE; /* 1KHz PWM Period */
+  TA0CCR1 = appState.speed;   /* 0% Duty cicle */
+  // TA0CTL |= MC_1;             /* Timer A mode control: 1 - Up to CCR0 */
 
-  __bis_SR_register(LPM3_bits + GIE);
+  TA1CTL &= ~MC_0;      /* Timer A mode control: 0 - Stop */
+  TA1CTL |= TASSEL_1;   /* Timer A clock source select: 1 - ACLK  */
+  TA1CTL |= ID_3;       /* Timer A input divider: 3 - /8 */
+  TA1CCTL0 |= OUTMOD_3; /* PWM output mode: 3 - PWM set/reset */
+  TA1CCR0 = 750 - 1;
+  TA1CCR1 = 0;
+  TA1CTL &= ~TAIFG; /* Clear Timer A counter interrupt flag */
+  TA1CTL |= TAIE;   /* Timer A counter interrupt enable */
+  // TA1CTL |= MC_1;   /* Timer A mode control: 1 - Up to CCR0 */
+
+  __enable_interrupt();
+
+  __bis_SR_register(LPM4_bits);
+}
+
+#pragma vector = TIMER1_A1_VECTOR
+__interrupt void Timer1_A1_ISR(void) {
+  static volatile int currentLed = 0;
+  static volatile unsigned int currentSpeed = 0;
+
+  if (TA1IV & TA1IV_TACCR1) {
+    TA1CTL &= ~MC_1; // Stop debounce timer
+    TA1CTL |= MC_0;  // Stop debounce timer
+
+    TA0CTL &= ~MC_1; // Stop TA0 so we can make changes
+    TA0CTL |= MC_0;  // Stop TA0 so we can make changes
+
+    if (changeSpeedButtonPressed) {
+      changeSpeedButtonPressed = false;
+
+      if (currentState < (sizeof(appStates) / sizeof(appStates[0]))) {
+        currentState++;
+      } else {
+        currentState = 0;
+      }
+
+      P2OUT &= ~appState.indicator;
+
+      appState = appStates[currentState];
+
+      P2OUT |= appState.indicator;
+      TA0CCR1 = appState.speed;
+    }
+
+    if (enableSpeedButtonPressed) {
+      enableSpeedButtonPressed = false;
+
+      if (appState.enabled) {
+        P2OUT &= ~appState.indicator;
+        TA0CCR1 = NO_SPEED_VALUE;
+      } else {
+        P2OUT |= appState.indicator;
+        TA0CCR1 = appState.speed;
+      }
+
+      appState.enabled ^= true;
+    }
+
+    TA0CTL |= MC_1; // Start TA0 so changes can take effect
+
+    if (appState.enabled) {
+      __bic_SR_register(OSCOFF); // Go LPM3 so we can have PWM
+    } else {
+      __bis_SR_register(OSCOFF); // No Speed set, go LPM4
+    }
+
+    TA1IV &= ~TA1IV_TACCR1;
+  }
 }
 
 #pragma vector = PORT1_VECTOR
 __interrupt void Port1_ISR(void) {
   if (P1IFG & SPEED_PUSH_BUTTON) {
-    TA0CTL &= ~MC_0;
+    enableSpeedButtonPressed = false;
+    changeSpeedButtonPressed = true;
 
-    switch (TA0CCR1) {
-    case NO_SPEED_VALUE:
-      TA0CCR1 = LOW_SPEED_VALUE;
-      P2OUT |= LOW_SPEED_LED;
-      break;
+    TA1CTL &= ~MC_1; // Stop debounce timer
+    TA1CTL |= MC_0;  // Stop debounce timer
 
-    case LOW_SPEED_VALUE:
-      P2OUT &= ~LOW_SPEED_LED;
-      TA0CCR1 = MID_SPEED_VALUE;
-      P2OUT |= MID_SPEED_LED;
-      break;
+    TA1R = 0; // Restart debounce timer count
 
-    case MID_SPEED_VALUE:
-      P2OUT &= ~MID_SPEED_LED;
-      TA0CCR1 = FULL_SPEED_VALUE;
-      P2OUT |= FULL_SPEED_LED;
-      break;
+    TA1CTL |= MC_1; // Start debounce timer Up to CCR0
 
-    case FULL_SPEED_VALUE:
-      P2OUT &= ~FULL_SPEED_LED;
-      TA0CCR1 = NO_SPEED_VALUE;
-      break;
-    }
-
-    TA0CTL |= MC_1;
+    // Go LPM3 on exit so debounce timer can start count
+    __bic_SR_register_on_exit(OSCOFF);
 
     P1IFG &= ~SPEED_PUSH_BUTTON;
   }
@@ -108,26 +185,18 @@ __interrupt void Port1_ISR(void) {
 #pragma vector = PORT2_VECTOR
 __interrupt void Port2_ISR(void) {
   if (P2IFG & ENABLE_PUSH_BUTTON) {
-    static int currentStatus = 0;
+    changeSpeedButtonPressed = false;
+    enableSpeedButtonPressed = true;
 
-    if (TA0CTL & MC_1) {
-      TA0CTL &= ~MC_1;
-    } else {
-      TA0CTL |= MC_1;
-    }
+    TA1CTL &= ~MC_1; // Stop debounce timer
+    TA1CTL |= MC_0;  // Stop debounce timer
 
-    if (P2OUT & LOW_SPEED_LED) {
-      currentStatus = LOW_SPEED_LED;
-      P2OUT &= ~LOW_SPEED_LED;
-    } else if (P2OUT & MID_SPEED_LED) {
-      currentStatus = MID_SPEED_LED;
-      P2OUT &= ~MID_SPEED_LED;
-    } else if (P2OUT & FULL_SPEED_LED) {
-      currentStatus = FULL_SPEED_LED;
-      P2OUT &= ~FULL_SPEED_LED;
-    } else {
-      P2OUT |= currentStatus;
-    }
+    TA1R = 0; // Restart debounce timer count
+
+    TA1CTL |= MC_1; // Start debounce timer Up to CCR0
+
+    // Go LPM3 on exit so debounce timer can start count
+    __bic_SR_register_on_exit(OSCOFF);
 
     P2IFG &= ~ENABLE_PUSH_BUTTON;
   }
