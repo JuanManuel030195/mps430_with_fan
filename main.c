@@ -27,6 +27,8 @@ input.
 #define MID_SPEED_LED BIT1
 #define FULL_SPEED_LED BIT5 /* ACLK/ID_0/(TA0CCR0 + 1) = Period in Hz */
 
+#define TOTAL_STATES 4
+
 volatile bool changeSpeedButtonPressed = false;
 volatile bool enableSpeedButtonPressed = false;
 
@@ -34,16 +36,17 @@ volatile unsigned int currentState;
 
 volatile struct State appState;
 
-const struct State appStates[4] = {{NO_SPEED_VALUE, 0, false},
-                                   {LOW_SPEED_VALUE, LOW_SPEED_LED, true},
-                                   {MID_SPEED_VALUE, MID_SPEED_LED, true},
-                                   {FULL_SPEED_VALUE, FULL_SPEED_LED, true}};
+const struct State appStates[TOTAL_STATES] = {
+    {NO_SPEED_VALUE, 0, false},
+    {LOW_SPEED_VALUE, LOW_SPEED_LED, true},
+    {MID_SPEED_VALUE, MID_SPEED_LED, true},
+    {FULL_SPEED_VALUE, FULL_SPEED_LED, true}};
 
 int main(void) {
   WDTCTL = WDTPW + WDTHOLD; // Stop watchdog timer
 
   currentState = 0;
-  appState = appStates[currentState];
+  appState = *appStates;
 
   BCSCTL3 |= LFXT1S_2; /* Mode 2 for LFXT1 : VLOCLK 12KHz*/
   BCSCTL1 |= DIVA_0;   /* ACLK Divider 0: /1 */
@@ -120,15 +123,19 @@ __interrupt void Timer1_A1_ISR(void) {
     if (changeSpeedButtonPressed) {
       changeSpeedButtonPressed = false;
 
-      if (currentState < (sizeof(appStates) / sizeof(appStates[0])) - 1) {
-        currentState++;
+      if (!appState.enabled) {
+        appState.enabled = true;
       } else {
-        currentState = 0;
+        if (currentState < TOTAL_STATES - 1) {
+          currentState++;
+        } else {
+          currentState = 0;
+        }
+
+        P2OUT &= ~appState.indicator;
+
+        appState = *(appStates + currentState);
       }
-
-      P2OUT &= ~appState.indicator;
-
-      appState = appStates[currentState];
 
       P2OUT |= appState.indicator;
       TA0CCR1 = appState.speed;
