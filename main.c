@@ -109,8 +109,6 @@ int main(void) {
 
 #pragma vector = TIMER1_A1_VECTOR
 __interrupt void Timer1_A1_ISR(void) {
-  static volatile int currentLed = 0;
-  static volatile unsigned int currentSpeed = 0;
 
   if (TA1IV & TA1IV_TACCR1) {
     TA1CTL &= ~MC_1; // Stop debounce timer
@@ -122,7 +120,7 @@ __interrupt void Timer1_A1_ISR(void) {
     if (changeSpeedButtonPressed) {
       changeSpeedButtonPressed = false;
 
-      if (currentState < (sizeof(appStates) / sizeof(appStates[0]))) {
+      if (currentState < (sizeof(appStates) / sizeof(appStates[0])) - 1) {
         currentState++;
       } else {
         currentState = 0;
