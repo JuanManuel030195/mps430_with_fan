@@ -123,7 +123,7 @@ __interrupt void Timer1_A1_ISR(void) {
     if (changeSpeedButtonPressed) {
       changeSpeedButtonPressed = false;
 
-      if (!appState.enabled) {
+      if (!appState.enabled && currentState != 0) {
         appState.enabled = true;
       } else {
         if (currentState < TOTAL_STATES - 1) {
