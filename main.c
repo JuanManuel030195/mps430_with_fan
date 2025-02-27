@@ -5,15 +5,6 @@
 
 #include "./State.h"
 
-/*
-Unused I/O pins should be configured as I/O function, output direction, and left
-unconnected on the PC board, to prevent a floating input and reduce power
-consumption. The value of the PxOUT bit is irrelevant, since the pin is
-unconnected. Alternatively, the integrated pullup/pulldown resistor can be
-enabled by setting the PxREN bit of the unused pin to prevent the floating
-input.
-*/
-
 #define NO_SPEED_VALUE 0
 #define LOW_SPEED_VALUE 4
 #define MID_SPEED_VALUE 7
@@ -50,6 +41,20 @@ int main(void) {
 
   BCSCTL3 |= LFXT1S_2; /* Mode 2 for LFXT1 : VLOCLK 12KHz*/
   BCSCTL1 |= DIVA_0;   /* ACLK Divider 0: /1 */
+
+  // Configure P1 initially as unused port to reduce power consumption
+  P1DIR |= 0xFF;   // Unused pins configured as I/O function output direction
+  P1SEL &= ~0xFF;  // I/O function is selected.
+  P1SEL2 &= ~0xFF; // I/O function is selected.
+  P1REN |= 0xFF;   // Integrated pullup/pulldown resistor enabled
+  P1OUT &= ~0xFF;  // Pulldown selected
+
+  // Configure P2 initially as unused port to reduce power consumption
+  P2DIR |= 0xFF;   // Unused pins configured as I/O function output direction
+  P2SEL &= ~0xFF;  // I/O function is selected.
+  P2SEL2 &= ~0xFF; // I/O function is selected.
+  P2REN |= 0xFF;   // Integrated pullup/pulldown resistor enabled
+  P2OUT &= ~0xFF;  // Pulldown selected
 
   // P1.0 = ACLK
   P1DIR |= BIT0;   // P1.0 configured as output
