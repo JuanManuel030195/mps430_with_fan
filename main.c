@@ -43,18 +43,18 @@ int main(void) {
   BCSCTL1 |= DIVA_0;   /* ACLK Divider 0: /1 */
 
   // Configure P1 initially as unused port to reduce power consumption
-  P1DIR |= 0xFF;   // Unused pins configured as I/O function output direction
+  P1DIR &= ~0xFF;  // Unused pins configured as I/O input direction
   P1SEL &= ~0xFF;  // I/O function is selected.
   P1SEL2 &= ~0xFF; // I/O function is selected.
-  P1REN |= 0xFF;   // Integrated pullup/pulldown resistor enabled
-  P1OUT &= ~0xFF;  // Pulldown selected
+  // P1REN |= 0xFF;   // Integrated pullup/pulldown resistor enabled
+  // P1OUT &= ~0xFF;  // Pulldown selected
 
   // Configure P2 initially as unused port to reduce power consumption
-  P2DIR |= 0xFF;   // Unused pins configured as I/O function output direction
+  P2DIR &= ~0xFF;  // Unused pins configured as I/O input direction
   P2SEL &= ~0xFF;  // I/O function is selected.
   P2SEL2 &= ~0xFF; // I/O function is selected.
-  P2REN |= 0xFF;   // Integrated pullup/pulldown resistor enabled
-  P2OUT &= ~0xFF;  // Pulldown selected
+  // P2REN |= 0xFF;   // Integrated pullup/pulldown resistor enabled
+  // P2OUT &= ~0xFF;  // Pulldown selected
 
   // P1.0 = ACLK
   P1DIR |= BIT0;   // P1.0 configured as output
