@@ -189,10 +189,10 @@ __interrupt void Port1_ISR(void) {
 
     TA1CTL |= MC_1; // Start debounce timer Up to CCR0
 
+    P1IFG &= ~SPEED_PUSH_BUTTON;
+
     // Go LPM3 on exit so debounce timer can start count
     __bic_SR_register_on_exit(OSCOFF);
-
-    P1IFG &= ~SPEED_PUSH_BUTTON;
   }
 }
 
@@ -209,9 +209,9 @@ __interrupt void Port2_ISR(void) {
 
     TA1CTL |= MC_1; // Start debounce timer Up to CCR0
 
+    P2IFG &= ~ENABLE_PUSH_BUTTON;
+
     // Go LPM3 on exit so debounce timer can start count
     __bic_SR_register_on_exit(OSCOFF);
-
-    P2IFG &= ~ENABLE_PUSH_BUTTON;
   }
 }
