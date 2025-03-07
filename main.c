@@ -5,10 +5,10 @@
 
 #include "./State.h"
 
-#define NO_SPEED_VALUE 0
-#define LOW_SPEED_VALUE 4
-#define MID_SPEED_VALUE 7
-#define FULL_SPEED_VALUE 10
+#define NO_SPEED_VALUE 0    // 0.58mA (LPM4)
+#define LOW_SPEED_VALUE 4   // 8.20mA (LPM3)
+#define MID_SPEED_VALUE 7   // 13.0mA (LPM3)
+#define FULL_SPEED_VALUE 10 // 9.74mA (LPM3)
 
 #define ENABLE_PUSH_BUTTON BIT7
 #define SPEED_PUSH_BUTTON BIT3
