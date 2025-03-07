@@ -91,11 +91,12 @@ int main(void) {
   P2SEL &= ~(LOW_SPEED_LED | MID_SPEED_LED | FULL_SPEED_LED);
   P2SEL2 &= ~(LOW_SPEED_LED | MID_SPEED_LED | FULL_SPEED_LED);
 
-  // P1.6 = TA0.1 -> TA0CCR1
+  // P1.6 = TA0.1 -> TA0CCR1 PWM output
   P1DIR |= SPEED_OUTPUT;   // P1.0 configured as output
   P1SEL |= SPEED_OUTPUT;   // Primary peripheral module function for P1.6
   P1SEL2 &= ~SPEED_OUTPUT; // Primary peripheral module function for P1.6
 
+  // Timer A0 setup for PWM
   TA0CTL &= ~MC_0;            /* Timer A mode control: 0 - Stop */
   TA0CTL |= TASSEL_1;         /* Timer A clock source select: 1 - ACLK  */
   TA0CTL |= ID_0;             /* Timer A input divider: 0 - /1 */
@@ -104,11 +105,12 @@ int main(void) {
   TA0CCR1 = appState.speed;   /* 0% Duty cicle */
   // TA0CTL |= MC_1;             /* Timer A mode control: 1 - Up to CCR0 */
 
+  // TA1 setup as Debounce timer for 500ms
   TA1CTL &= ~MC_0;      /* Timer A mode control: 0 - Stop */
   TA1CTL |= TASSEL_1;   /* Timer A clock source select: 1 - ACLK  */
   TA1CTL |= ID_3;       /* Timer A input divider: 3 - /8 */
   TA1CCTL0 |= OUTMOD_3; /* PWM output mode: 3 - PWM set/reset */
-  TA1CCR0 = 750 - 1;
+  TA1CCR0 = 750 - 1;    /* 2Hz Period */
   TA1CCR1 = 0;
   TA1CTL &= ~TAIFG; /* Clear Timer A counter interrupt flag */
   TA1CTL |= TAIE;   /* Timer A counter interrupt enable */
@@ -121,7 +123,6 @@ int main(void) {
 
 #pragma vector = TIMER1_A1_VECTOR
 __interrupt void Timer1_A1_ISR(void) {
-
   if (TA1IV & TA1IV_TACCR1) {
     TA1CTL &= ~MC_1; // Stop debounce timer
     TA1CTL |= MC_0;  // Stop debounce timer
