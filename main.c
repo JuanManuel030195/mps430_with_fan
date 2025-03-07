@@ -167,9 +167,12 @@ __interrupt void Timer1_A1_ISR(void) {
     TA0CTL |= MC_1; // Start TA0 so changes can take effect
 
     if (appState.enabled) {
-      __bic_SR_register(OSCOFF); // Go LPM3 so we can have PWM
+      P1SEL |= SPEED_OUTPUT; // Primary peripheral module function for P1.6
+      __bic_SR_register_on_exit(OSCOFF); // Go LPM3 so we can have PWM
     } else {
-      __bis_SR_register(OSCOFF); // No Speed set, go LPM4
+      P1SEL &= ~SPEED_OUTPUT;            // I/O function on P1.6
+      P1OUT &= ~SPEED_OUTPUT;            // Clear P1.6
+      __bis_SR_register_on_exit(OSCOFF); // No Speed set, go LPM4
     }
 
     TA1IV &= ~TA1IV_TACCR1;
