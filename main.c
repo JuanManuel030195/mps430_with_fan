@@ -33,33 +33,37 @@ const struct State appStates[TOTAL_STATES] = {
     {MID_SPEED_VALUE, MID_SPEED_LED, true},
     {FULL_SPEED_VALUE, FULL_SPEED_LED, true}};
 
+const unsigned char NON_USED_P1_PINS = BIT0 | BIT1 | BIT2 | BIT4 | BIT5 | BIT7;
+const unsigned char NON_USED_P2_PINS = BIT0 | BIT2 | BIT4 | BIT6;
+
 int main(void) {
   WDTCTL = WDTPW + WDTHOLD; // Stop watchdog timer
 
   currentState = 0;
   appState = *appStates;
 
+  // Setup ACLK to 12KHz
   BCSCTL3 |= LFXT1S_2; /* Mode 2 for LFXT1 : VLOCLK 12KHz*/
   BCSCTL1 |= DIVA_0;   /* ACLK Divider 0: /1 */
 
   // Configure P1 initially as unused port to reduce power consumption
-  P1DIR &= ~0xFF;  // Unused pins configured as I/O input direction
-  P1SEL &= ~0xFF;  // I/O function is selected.
-  P1SEL2 &= ~0xFF; // I/O function is selected.
-  // P1REN |= 0xFF;   // Integrated pullup/pulldown resistor enabled
-  // P1OUT &= ~0xFF;  // Pulldown selected
+  P1DIR &= ~NON_USED_P1_PINS;  // Configured as output
+  P1SEL &= ~NON_USED_P1_PINS;  // I/O function
+  P1SEL2 &= ~NON_USED_P1_PINS; // I/O function
+  P1REN |= NON_USED_P1_PINS;   // Pullup or pulldown resistor enabled
+  P1OUT &= ~NON_USED_P1_PINS;  // Pulldown resistor selected
 
   // Configure P2 initially as unused port to reduce power consumption
-  P2DIR &= ~0xFF;  // Unused pins configured as I/O input direction
-  P2SEL &= ~0xFF;  // I/O function is selected.
-  P2SEL2 &= ~0xFF; // I/O function is selected.
-  // P2REN |= 0xFF;   // Integrated pullup/pulldown resistor enabled
-  // P2OUT &= ~0xFF;  // Pulldown selected
+  P2DIR &= ~NON_USED_P2_PINS;  // Configured as output
+  P2SEL &= ~NON_USED_P2_PINS;  // I/O function
+  P2SEL2 &= ~NON_USED_P2_PINS; // I/O function
+  P2REN |= NON_USED_P2_PINS;   // Pullup or pulldown resistor enabled
+  P2OUT &= ~NON_USED_P2_PINS;  // Pulldown resistor selected
 
   // P1.0 = ACLK
-  P1DIR |= BIT0;   // P1.0 configured as output
-  P1SEL |= BIT0;   // Primary peripheral module function for P1.0
-  P1SEL2 &= ~BIT0; // Primary peripheral module function for P1.0
+  // P1DIR |= BIT0;   // P1.0 configured as output
+  // P1SEL |= BIT0;   // Primary peripheral module function for P1.0
+  // P1SEL2 &= ~BIT0; // Primary peripheral module function for P1.0
 
   // P1.3 = Speed Push Button
   P1DIR &= ~SPEED_PUSH_BUTTON;  // P1.3 configured as input
